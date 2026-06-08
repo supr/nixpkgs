@@ -28,6 +28,7 @@ derivation (
       "fortify3"
       "shadowstack"
       "pacret"
+      "strictflexarrays1"
       "stackclashprotection"
       "trivialautovarinit"
       "zerocallusedregs"
