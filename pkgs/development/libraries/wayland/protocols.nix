@@ -51,6 +51,44 @@ stdenv.mkDerivation (finalAttrs: {
 
   mesonFlags = [ "-Dtests=${lib.boolToString finalAttrs.finalPackage.doCheck}" ];
 
+  # On ppc64le (and other stricter-linker platforms), 12 of the
+  # test-build-pedantic-* tests fail at *runtime* with e.g. "symbol lookup
+  # error: undefined symbol: xdg_toplevel_interface". These are protocols
+  # whose generated -code.c references interfaces defined in another
+  # protocol; the test executables link only thanks to
+  # -Wl,--unresolved-symbols=ignore-all, so they build but cannot run.
+  # Upstream: https://gitlab.freedesktop.org/wayland/wayland-protocols/-/issues/48
+  # The protocol files themselves are fine; only these self-tests break.
+  # Instead of disabling the whole suite, run every test EXCEPT those 12,
+  # so the other 179 (all scan-*, all cxx-*, and the ~52 good pedantic
+  # tests) still guard against regressions. meson test only accepts an
+  # inclusion list, so we pass the complement of the known-broken set.
+  checkPhase =
+    lib.optionalString (stdenv.hostPlatform.isPower64 && stdenv.hostPlatform.isLittleEndian) ''
+      runHook preCheck
+      ninja -j"$NIX_BUILD_CORES" meson-test-prereq
+      brokenTests="\
+      test-build-pedantic-experimental_xx_keyboard_filter_xx_keyboard_filter_v1_xml
+      test-build-pedantic-experimental_xx_session_management_xx_session_management_v1_xml
+      test-build-pedantic-experimental_xx_zones_xx_zones_v1_xml
+      test-build-pedantic-staging_cursor_shape_cursor_shape_v1_xml
+      test-build-pedantic-staging_ext_image_capture_source_ext_image_capture_source_v1_xml
+      test-build-pedantic-staging_ext_image_copy_capture_ext_image_copy_capture_v1_xml
+      test-build-pedantic-staging_xdg_dialog_xdg_dialog_v1_xml
+      test-build-pedantic-staging_xdg_session_management_xdg_session_management_v1_xml
+      test-build-pedantic-staging_xdg_toplevel_drag_xdg_toplevel_drag_v1_xml
+      test-build-pedantic-staging_xdg_toplevel_icon_xdg_toplevel_icon_v1_xml
+      test-build-pedantic-staging_xdg_toplevel_tag_xdg_toplevel_tag_v1_xml
+      test-build-pedantic-unstable_xdg_decoration_xdg_decoration_unstable_v1_xml"
+      allTests=$(meson test --list | sed 's/^wayland-protocols://' | sort)
+      badTests=$(echo "$brokenTests" | sed 's/^[[:space:]]*//' | sort)
+      runTests=$(comm -23 <(echo "$allTests") <(echo "$badTests"))
+      echo "wayland-protocols: running $(echo "$runTests" | wc -l)/$(echo "$allTests" | wc -l) tests" \
+        "(skipping $(echo "$badTests" | wc -l) known-broken pedantic tests on ppc64le, upstream issue 48)"
+      meson test --no-rebuild --print-errorlogs $runTests
+      runHook postCheck
+    '';
+
   meta = {
     description = "Wayland protocol extensions";
     longDescription = ''
