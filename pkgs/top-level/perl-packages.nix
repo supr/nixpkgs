@@ -33400,10 +33400,11 @@ with self;
       ./scripts/yath test -j $NIX_BUILD_CORES
     '';
 
-    # The t/integration/preload.t test is broken on riscv64 & powerpc64
+    # The t/integration/preload.t test is broken on riscv64 & all powerpc64
+    # (incl. little-endian ppc64le); concurrency race, not endianness-specific.
     # https://github.com/Test-More/Test2-Harness/issues/290
     doCheck =
-      !stdenv.hostPlatform.isRiscV && !(stdenv.hostPlatform.isPower64 && stdenv.hostPlatform.isBigEndian);
+      !stdenv.hostPlatform.isRiscV && !stdenv.hostPlatform.isPower64;
 
     propagatedBuildInputs = [
       DataUUID
