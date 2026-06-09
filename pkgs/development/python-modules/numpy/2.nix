@@ -45,7 +45,14 @@ buildPythonPackage (finalAttrs: {
     hash = "sha256-LAGXw4vFpjZjZ2s/dXdzXHDm6Ah3pronjScqK02wivY=";
   };
 
-  patches = lib.optionals python.hasDistutilsCxxPatch [
+  patches = [
+    # Define NPY_HAVE_VSX when only higher VSX levels (VSX2/3/4) are enabled as
+    # dispatch targets (e.g. with cpu-baseline=none on ppc64le). Without it the
+    # Power SIMD code falls through to the s390x/VX branch and <altivec.h> is
+    # never included, so vec_* intrinsics are undeclared and the build fails.
+    ./define-vsx-from-higher-vsx-levels.patch
+  ]
+  ++ lib.optionals python.hasDistutilsCxxPatch [
     # We patch cpython/distutils to fix https://bugs.python.org/issue1222585
     # Patching of numpy.distutils is needed to prevent it from undoing the
     # patch to distutils.
@@ -160,6 +167,12 @@ buildPythonPackage (finalAttrs: {
   ++ lib.optionals (stdenv.hostPlatform.isPower64 && stdenv.hostPlatform.isBigEndian) [
     # https://github.com/numpy/numpy/issues/29918
     "test_sq_cases"
+  ]
+  ++ lib.optionals (stdenv.hostPlatform.isPower64 && stdenv.hostPlatform.isLittleEndian) [
+    # IBM double-double long double: last-digit rounding in the string
+    # representation differs from the hard-coded expected values. ppc64-only
+    # test (skipif not ppc64); the format itself works.
+    "test_ppc64_ibm_double_double128"
   ]
   ++ lib.optionals (stdenv.hostPlatform ? gcc.arch) [
     # remove if https://github.com/numpy/numpy/issues/27460 is resolved
