@@ -146,14 +146,7 @@ stdenv.mkDerivation (finalAttrs: {
     nix-expr-tests.tests.run
     nix-fetchers-tests.tests.run
     nix-flake-tests.tests.run
-  ]
-  # The functional tests pull in mercurial -> a Python env -> numpy, and
-  # numpy 2.4 fails to *compile* on ppc64le (POWER VSX intrinsics
-  # vec_sel/vec_add/vec_cmpeq are not declared). The functional tests
-  # themselves are not endianness-sensitive, but their fixture closure is
-  # unbuildable here, so gate them out on little-endian Power64. The unit
-  # tests above still run and gate the build.
-  ++ lib.optionals (!(stdenv.hostPlatform.isPower64 && stdenv.hostPlatform.isLittleEndian)) [
+
     # Make sure the functional tests have passed
     nix-functional-tests
   ]
