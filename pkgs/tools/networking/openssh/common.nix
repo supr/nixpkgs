@@ -110,6 +110,15 @@ stdenv.mkDerivation (finalAttrs: {
     # and nix store doesn't allow such fancy permission bits anyway.
     ''
       substituteInPlace Makefile.in --replace-fail '$(INSTALL) -m 4711' '$(INSTALL) -m 0711'
+    ''
+    # GCC on powerpc does not implement -fzero-call-used-regs=used (the all
+    # register classes variant); it errors with "sorry, unimplemented".
+    # openssh's configure adds it unconditionally after a link test that does
+    # not exercise the unimplemented path. Downgrade to the GPR-only variant,
+    # which GCC does support on powerpc (and matches the cc-wrapper hardening).
+    + lib.optionalString stdenv.hostPlatform.isPower ''
+      substituteInPlace configure.ac \
+        --replace-fail '-fzero-call-used-regs=used]' '-fzero-call-used-regs=used-gpr]'
     '';
 
   strictDeps = true;
